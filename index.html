@@ -50,9 +50,8 @@ if ('serviceWorker' in navigator) {
   <label>اختر الشكل الدوائي:</label>
   <select id="form">
     <option value="syrup">شراب</option>
-    <option value="tablet">أقراص</option>
-    <option value="supp">لبوس</option>
-  </select>
+    <option value="supp">تحاميل</option>
+</select>
 
   <label>تركيز المستحضر (ملغم/مل):</label>
   <select id="strength">
@@ -63,7 +62,8 @@ if ('serviceWorker' in navigator) {
     <option value="20i">100mg/5mL Ibuprofen (20 mg/mL)</option>
     <option value="40i">200mg/5mL Ibuprofen (40 mg/mL)</option>
     <option value="40dropsi">40mg/mL Ibuprofen drops</option>
-  </select>
+      <option value="125supp">125mg تحاميل أدول</option>
+</select>
 
   <button onclick="calcDose()">احسب الجرعة الآمنة</button>
 
@@ -74,19 +74,21 @@ if ('serviceWorker' in navigator) {
   <p>المصدر: Micromedex</p>
 </footer>
 
+
 <script>
 function calcDose(){
   let weight = parseFloat(document.getElementById('weight').value);
   let age = parseInt(document.getElementById('age').value);
   let drug = document.getElementById('drug').value;
   let form = document.getElementById('form').value;
-  let strengthVal = parseFloat(document.getElementById('strength').value);
+  let strengthVal = document.getElementById('strength').value;
 
   if (!weight || !age) {
     alert("الرجاء إدخال وزن وعمر صحيحين.");
     return;
   }
 
+  // Micromedex: Paracetamol 10–15 mg/kg/dose q4–6h; max 75 mg/kg/day
   let doseMin, doseMax, freq, max24h;
   if (drug === "paracetamol") {
     doseMin = 10 * weight;
@@ -105,19 +107,37 @@ function calcDose(){
   }
 
   let result = "<h3>النتيجة:</h3>";
-  if(form === "syrup"){
-    let mlMin = (doseMin / strengthVal).toFixed(1);
-    let mlMax = (doseMax / strengthVal).toFixed(1);
-    result += "الجرعة: " + doseMin.toFixed(0) + " – " + doseMax.toFixed(0) + " ملغم (" + mlMin + " – " + mlMax + " mL) " + freq + "<br>";
+  if (form === "syrup"){
+    let mgPerMl = parseFloat(strengthVal);
+    if (isNaN(mgPerMl)) {
+      result += "اختر تركيز الشراب الصحيح من القائمة.<br>";
+    } else {
+      let mlMin = (doseMin / mgPerMl).toFixed(1);
+      let mlMax = (doseMax / mgPerMl).toFixed(1);
+      result += "الجرعة: " + doseMin.toFixed(0) + " – " + doseMax.toFixed(0) + " ملغم (" + mlMin + " – " + mlMax + " mL) " + freq + "<br>";
+    }
+  } else if (form === "supp") {
+    if (drug !== "paracetamol") {
+      result += "التحاميل المتاحة هي أدول (باراسيتامول) 125mg فقط.<br>";
+    }
+    if (strengthVal !== "125supp") {
+      result += "اختر: 125mg تحاميل أدول من قائمة التركيزات.<br>";
+    } else {
+      let suppStrength = 125; // mg per suppository
+      let suppMin = Math.ceil(doseMin / suppStrength);
+      let suppMax = Math.ceil(doseMax / suppStrength);
+      result += "الجرعة: " + doseMin.toFixed(0) + " – " + doseMax.toFixed(0) + " ملغم (" + suppMin + " – " + suppMax + " تحاميل) " + freq + "<br>";
+    }
   } else {
     result += "الجرعة: " + doseMin.toFixed(0) + " – " + doseMax.toFixed(0) + " ملغم " + freq + "<br>";
   }
-  result += "الحد الأقصى خلال 24 ساعة: " + max24h.toFixed(0) + " ملغم.<br>";
 
+  result += "الحد الأقصى خلال 24 ساعة: " + max24h.toFixed(0) + " ملغم.<br>";
   document.getElementById('result').innerHTML = result;
   document.getElementById('result').style.display = 'block';
 }
 </script>
+
 
 </body>
 </html>
