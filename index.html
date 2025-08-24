@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>حاسبة جرعات الأطفال – حفر الباطن</title>
+  <style>
+    body { font-family: 'Tahoma', sans-serif; margin: 20px; background: #f9f9f9; }
+    header { text-align: center; margin-bottom: 20px; }
+    header img { max-height: 100px; display: block; margin: 0 auto; }
+    h1 { font-size: 22px; margin-top: 10px; color: #003366; }
+    .calc-box { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+    label { display: block; margin: 8px 0 4px; font-weight: bold; }
+    input, select { padding: 6px; width: 100%; margin-bottom: 12px; }
+    button { padding: 10px 20px; background: #0066cc; color: #fff; border: none; border-radius: 5px; cursor: pointer; }
+    button:hover { background: #004999; }
+    #result { margin-top: 20px; padding: 15px; background: #eef; border-radius: 8px; display:none; }
+    footer { margin-top: 30px; text-align: center; font-size: 12px; color: #666; }
+  </style>
+
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#003366">
+<script>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('service-worker.js');
+}
+</script>
+
+</head>
+<body>
+
+<header>
+  <img src="https://hrhc2025.com/public/ar_assets/img/logo2.png" alt="شعار تجمع حفر الباطن الصحي">
+  <h1>إدارة الرعاية الصيدلانية – مستشفى حفر الباطن المركزي</h1>
+</header>
+
+<div class="calc-box">
+  <label>وزن الطفل (كجم):</label>
+  <input type="number" id="weight" min="1" placeholder="أدخل الوزن بالكيلوجرام">
+
+  <label>العمر (بالأشهر):</label>
+  <input type="number" id="age" min="0" placeholder="أدخل العمر بالأشهر">
+
+  <label>اختر الدواء:</label>
+  <select id="drug">
+    <option value="paracetamol">باراسيتامول (Adol)</option>
+    <option value="ibuprofen">إيبوبروفين (Brufen)</option>
+  </select>
+
+  <label>اختر الشكل الدوائي:</label>
+  <select id="form" onchange="updateUI()">
+    <option value="syrup">شراب</option>
+    <option value="supp">تحاميل</option>
+</select>
+
+  <div id="strength-group"><label>تركيز المستحضر (ملغم/مل):</label>
+  <select id="strength">
+    <option value="32">160mg/5mL (32 mg/mL)</option>
+    <option value="24">120mg/5mL (24 mg/mL)</option>
+    <option value="20">100mg/5mL (20 mg/mL)</option>
+    <option value="50">250mg/5mL (50 mg/mL)</option>
+    <option value="20i">100mg/5mL Ibuprofen (20 mg/mL)</option>
+    <option value="40i">200mg/5mL Ibuprofen (40 mg/mL)</option>
+    <option value="40dropsi">40mg/mL Ibuprofen drops</option>
+    <option value="125supp">125mg تحاميل أدول</option>
+</select></div>
+
+  <button onclick="calcDose()">احسب الجرعة الآمنة</button>
+
+  <div id="result"></div>
+</div>
+
+<footer>
+  <p>المصدر: Micromedex</p>
+</footer>
+
+
+<script>
+function updateUI(){
+  const form = document.getElementById('form').value;
+  const drugSel = document.getElementById('drug');
+  const strengthSel = document.getElementById('strength');
+  const strengthGroup = document.getElementById('strength-group');
+
+  if (form === 'supp'){
+    drugSel.value = 'paracetamol';
+    strengthSel.value = '125supp';
+    if (strengthGroup) strengthGroup.style.display = 'none';
+  } else {
+    if (strengthGroup) strengthGroup.style.display = '';
+  }
+}
+
+function calcDose(){
+  let weight = parseFloat(document.getElementById('weight').value);
+  let age = parseInt(document.getElementById('age').value);
+  let drug = document.getElementById('drug').value;
+  let form = document.getElementById('form').value;
+  let strengthVal = document.getElementById('strength').value;
+
+  if (!weight || !age) {
+    alert("الرجاء إدخال وزن وعمر صحيحين.");
+    return;
+  }
+
+  let doseMin, doseMax, freq, max24h;
+  let dosesPerDay = 0;
+  if (drug === "paracetamol") {
+    doseMin = 10 * weight;
+    doseMax = 15 * weight;
+    freq = "كل 4-6 ساعات (بحد أقصى 5 جرعات/يوم)";
+    max24h = 75 * weight;
+    dosesPerDay = 5; // Micromedex: max 5 doses/day
+  } else if (drug === "ibuprofen") {
+    if (age < 6) {
+      alert("⚠️ لا ينصح باستخدام الإيبوبروفين للأطفال أقل من 6 أشهر إلا بأمر الطبيب.");
+    }
+    doseMin = 5 * weight;
+    doseMax = 10 * weight;
+    freq = "كل 6-8 ساعات";
+    max24h = 40 * weight;
+    if (doseMax > 400) doseMax = 400;
+    dosesPerDay = 4; // approx for ibuprofen
+  }
+
+  let result = "<h3>النتيجة:</h3>";
+
+  if (form === "supp"){
+    const mgPerSupp = 125;
+    const maxSuppDay = Math.floor(max24h / mgPerSupp);
+
+    if (maxSuppDay < 1){
+      result += "الوزن أقل من الحد المناسب لاستخدام تحاميل 125mg. يُرجى مراجعة الطبيب/الصيدلي.<br>";
+    } else {
+      result += "الحد الأقصى خلال 24 ساعة: " + maxSuppDay + " تحميلة.<br>";
+      result += "الفاصل بين الجرعات: كل 4–6 ساعات.";
+    }
+  } else if (form === "syrup") {
+    let mgPerMl = parseFloat(strengthVal);
+    if (isNaN(mgPerMl)) {
+      result += "اختر تركيز الشراب الصحيح من القائمة.<br>";
+    } else {
+      let mlMin = (doseMin / mgPerMl).toFixed(1);
+      let mlMax = (doseMax / mgPerMl).toFixed(1);
+      result += "الجرعة لكل جرعة: " + mlMin + " – " + mlMax + " mL.<br>";
+      result += "عدد الجرعات في اليوم: حتى " + dosesPerDay + " جرعات.<br>";
+      result += "الفاصل بين الجرعات: " + freq + ".";
+    }
+  } else {
+    result += "الحد الأقصى خلال 24 ساعة محسوب وفق الوزن.<br>";
+  }
+
+  const resBox = document.getElementById('result');
+  resBox.innerHTML = result;
+  resBox.style.display = 'block';
+}
+
+document.addEventListener('DOMContentLoaded', updateUI);
+</script>
+
+
+</body>
+</html>
